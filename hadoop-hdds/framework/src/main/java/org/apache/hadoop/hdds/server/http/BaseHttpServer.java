@@ -116,7 +116,7 @@ public abstract class BaseHttpServer {
         prometheusMetricsSink = new PrometheusMetricsSink();
         httpServer.getWebAppContext().getServletContext()
             .setAttribute(PROMETHEUS_SINK, prometheusMetricsSink);
-        httpServer.addServlet("prometheus", "/prom", PrometheusServlet.class);
+        httpServer.addInternalServlet("prometheus", "/prom", PrometheusServlet.class);
       }
 
       if (profilerSupport) {

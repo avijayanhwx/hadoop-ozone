@@ -17,6 +17,8 @@
  */
 package org.apache.hadoop.hdds.server.http;
 
+import static org.apache.hadoop.security.AuthenticationFilterInitializer.getFilterConfigMap;
+
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
@@ -28,6 +30,7 @@ import java.net.MalformedURLException;
 import java.net.URI;
 import java.net.URL;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.Enumeration;
 import java.util.HashMap;
@@ -60,6 +63,9 @@ import org.apache.hadoop.conf.ConfServlet;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.conf.Configuration.IntegerRanges;
 import org.apache.hadoop.fs.CommonConfigurationKeys;
+import org.apache.hadoop.http.FilterContainer;
+import org.apache.hadoop.http.FilterInitializer;
+import org.apache.hadoop.http.lib.StaticUserWebFilter;
 import org.apache.hadoop.jmx.JMXJsonServlet;
 import org.apache.hadoop.log.LogLevel;
 import org.apache.hadoop.security.AuthenticationFilterInitializer;
@@ -605,7 +611,12 @@ public final class HttpServer2 implements FilterContainer {
       conf = new Configuration(conf);
       conf.set(BIND_ADDRESS, hostName);
       for (FilterInitializer c : initializers) {
-        c.initFilter(this, conf);
+        Map<String, String> filterConfig = getFilterConfigMap(conf,
+            "ozone.om.http.");
+        LOG.info("filterConfig : {}", Arrays.asList(filterConfig).toString());
+        addFilter("authentication",
+            AuthenticationFilter.class.getName(),
+            filterConfig);
       }
     }
 
@@ -664,8 +675,7 @@ public final class HttpServer2 implements FilterContainer {
   private static Properties getFilterProperties(Configuration conf, String
       prefix) {
     Properties prop = new Properties();
-    Map<String, String> filterConfig = AuthenticationFilterInitializer
-        .getFilterConfigMap(conf, prefix);
+    Map<String, String> filterConfig = getFilterConfigMap(conf, prefix);
     prop.putAll(filterConfig);
     return prop;
   }
@@ -686,6 +696,7 @@ public final class HttpServer2 implements FilterContainer {
     Class<?>[] classes =
         conf.getClasses(FILTER_INITIALIZER_PROPERTY, StaticUserWebFilter.class);
     if (classes == null) {
+      LOG.info("No filters are passed in!!!");
       return null;
     }
 
@@ -693,6 +704,7 @@ public final class HttpServer2 implements FilterContainer {
     for (int i = 0; i < classes.length; i++) {
       initializers[i] = (FilterInitializer) ReflectionUtils.newInstance(
           classes[i], conf);
+      LOG.info("Filter {}", initializers[i].getClass().getSimpleName());
     }
     return initializers;
   }
@@ -850,7 +862,12 @@ public final class HttpServer2 implements FilterContainer {
     final ServletMapping[] servletMappings =
         webAppContext.getServletHandler().getServletMappings();
     for (int i = 0; i < servletMappings.length; i++) {
+      LOG.info("ServletMapping {}", servletMappings[i].getServletName());
+      LOG.info("Path specs {}", Arrays.toString(servletMappings[i].getPathSpecs()));
       if (servletMappings[i].containsPathSpec(pathSpec)) {
+        LOG.info("Found existing " + servletMappings[i].getServletName() +
+            " servlet at path " + pathSpec + "; will replace mapping" +
+            " with " + holder.getName() + " servlet");
         if (LOG.isDebugEnabled()) {
           LOG.debug("Found existing " + servletMappings[i].getServletName() +
               " servlet at path " + pathSpec + "; will replace mapping" +
@@ -858,6 +875,9 @@ public final class HttpServer2 implements FilterContainer {
         }
         ServletMapping[] newServletMappings =
             ArrayUtil.removeFromArray(servletMappings, servletMappings[i]);
+        LOG.info("Adding Servlet Mappings {} to handler {}",
+            Arrays.toString(servletMappings),
+            webAppContext.getServletHandler().toString());
         webAppContext.getServletHandler()
             .setServletMappings(newServletMappings);
         break;
@@ -986,6 +1006,7 @@ public final class HttpServer2 implements FilterContainer {
   private static void defineFilter(ServletContextHandler ctx,
       FilterHolder holder, FilterMapping fmap) {
     ServletHandler handler = ctx.getServletHandler();
+    LOG.info("Adding filter {} to handler {}", fmap.dump(), handler.toString());
     handler.addFilter(holder, fmap);
   }
 
