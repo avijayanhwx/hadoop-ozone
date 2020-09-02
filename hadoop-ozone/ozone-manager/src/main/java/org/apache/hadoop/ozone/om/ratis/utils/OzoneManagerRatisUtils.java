@@ -61,7 +61,6 @@ public final class OzoneManagerRatisUtils {
 
   private OzoneManagerRatisUtils() {
   }
-
   public static OMClientRequest getVolumeSetOwnerRequest(OMRequest omRequest) {
     boolean hasQuota = omRequest.getSetVolumePropertyRequest()
         .hasQuotaInBytes();

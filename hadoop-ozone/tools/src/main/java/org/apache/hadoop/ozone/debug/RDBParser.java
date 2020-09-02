@@ -41,11 +41,16 @@ public class RDBParser implements Callable<Void>, SubcommandWithParent {
   private CommandSpec spec;
 
   @CommandLine.Option(names = {"--db"},
-            description = "Database File Path")
-    private  String dbPath;
+      required = true,
+      description = "Database File Path")
+  private String dbPath;
 
   public String getDbPath() {
     return dbPath;
+  }
+
+  public void setDbPath(String dbPath) {
+    this.dbPath = dbPath;
   }
 
   @Override

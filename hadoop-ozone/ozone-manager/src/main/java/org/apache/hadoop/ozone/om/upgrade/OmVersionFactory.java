@@ -17,6 +17,7 @@ import org.apache.hadoop.ozone.om.request.key.OMKeyDeleteRequest;
 import org.apache.hadoop.ozone.om.request.key.OMKeyPurgeRequest;
 import org.apache.hadoop.ozone.om.request.key.OMKeyRenameRequest;
 import org.apache.hadoop.ozone.om.request.key.OMKeysDeleteRequest;
+import org.apache.hadoop.ozone.om.request.key.OMKeysRenameRequest;
 import org.apache.hadoop.ozone.om.request.key.OMTrashRecoverRequest;
 import org.apache.hadoop.ozone.om.request.s3.multipart.S3InitiateMultipartUploadRequest;
 import org.apache.hadoop.ozone.om.request.s3.multipart.S3MultipartUploadAbortRequest;
@@ -73,6 +74,7 @@ public class OmVersionFactory {
     registerClientRequest(Type.DeleteKey.name(), OMKeyDeleteRequest::new);
     registerClientRequest(Type.DeleteKeys.name(), OMKeysDeleteRequest::new);
     registerClientRequest(Type.RenameKey.name(), OMKeyRenameRequest::new);
+    registerClientRequest(Type.RenameKeys.name(), OMKeysRenameRequest::new);
     registerClientRequest(Type.CreateDirectory.name(),
         OMDirectoryCreateRequest::new);
     registerClientRequest(Type.CreateFile.name(), OMFileCreateRequest::new);
