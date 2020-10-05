@@ -1011,12 +1011,26 @@ public final class OzoneManager extends ServiceRuntimeInfoImpl
     }
   }
 
+  /**
+   * Wait for this OM instance to apply all committed transactions, and the
+   * purge the log after that.
+   * @return success / failure.
+   * @throws InterruptedException
+   * @throws IOException
+   */
   public boolean applyAllPendingTransactions()
       throws InterruptedException, IOException {
+
+    LOG.info("Preparing {} for upgrade/downgrade.", omId);
 
     if (!isRatisEnabled) {
       LOG.info("Ratis not enabled. Nothing to do.");
       return true;
+    }
+
+    if (!prepareForUpgrade) {
+      throw new IOException("Cannot Prepare OM for Upgrade since RPC Server " +
+          "may be running.");
     }
 
     waitForAllTxnsApplied(omRatisServer.getOmStateMachine(),
@@ -1302,6 +1316,11 @@ public final class OzoneManager extends ServiceRuntimeInfoImpl
     startJVMPauseMonitor();
     setStartTime();
     omState = State.RUNNING;
+  }
+
+  public void restartInUpgradeMode() throws IOException {
+    prepareForUpgrade = true;
+    restart();
   }
 
   /**
