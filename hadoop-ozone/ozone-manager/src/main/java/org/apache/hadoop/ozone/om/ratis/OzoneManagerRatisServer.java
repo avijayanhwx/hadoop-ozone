@@ -262,7 +262,16 @@ public final class OzoneManagerRatisServer {
     this.raftPeerId = localRaftPeerId;
     this.raftGroupId = RaftGroupId.valueOf(
         getRaftGroupIdFromOmServiceId(raftGroupIdStr));
-    this.raftGroup = RaftGroup.valueOf(raftGroupId, raftPeers);
+
+    if (forUpgrade) {
+      RaftPeer raftPeer =
+          raftPeers.stream().filter(p -> p.getId().equals(raftPeerId))
+              .findFirst().get();
+      this.raftGroup = RaftGroup.valueOf(raftGroupId,
+          Collections.singletonList(raftPeer));
+    } else {
+      this.raftGroup = RaftGroup.valueOf(raftGroupId, raftPeers);
+    }
 
     StringBuilder raftPeersStr = new StringBuilder();
     for (RaftPeer peer : raftPeers) {

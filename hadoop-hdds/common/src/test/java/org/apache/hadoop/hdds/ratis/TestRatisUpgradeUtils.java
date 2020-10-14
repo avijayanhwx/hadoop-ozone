@@ -17,7 +17,9 @@
 
 package org.apache.hadoop.hdds.ratis;
 
+import static org.apache.hadoop.hdds.ratis.RatisUpgradeUtils.takeSnapshotAndPurgeLogs;
 import static org.apache.hadoop.hdds.ratis.RatisUpgradeUtils.waitForAllTxnsApplied;
+import static org.junit.Assert.assertEquals;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -27,9 +29,7 @@ import java.io.IOException;
 import java.util.concurrent.CompletableFuture;
 
 import org.apache.hadoop.test.LambdaTestUtils;
-import org.apache.ratis.protocol.RaftGroup;
 import org.apache.ratis.server.impl.RaftServerImpl;
-import org.apache.ratis.server.impl.RaftServerProxy;
 import org.apache.ratis.server.impl.ServerState;
 import org.apache.ratis.server.protocol.TermIndex;
 import org.apache.ratis.server.raftlog.RaftLog;
@@ -46,14 +46,10 @@ public class TestRatisUpgradeUtils {
       InterruptedException {
 
     StateMachine stateMachine = mock(StateMachine.class);
-    RaftGroup raftGroup = RaftGroup.emptyGroup();
-    RaftServerProxy raftServerProxy = mock(RaftServerProxy.class);
     RaftServerImpl raftServer = mock(RaftServerImpl.class);
     ServerState serverState = mock(ServerState.class);
     RaftLog raftLog = mock(RaftLog.class);
 
-    when(raftServerProxy.getImpl(
-        raftGroup.getGroupId())).thenReturn(raftServer);
     when(raftServer.getState()).thenReturn(serverState);
     when(serverState.getLog()).thenReturn(raftLog);
     when(raftLog.getLastCommittedIndex()).thenReturn(1L);
@@ -63,8 +59,7 @@ public class TestRatisUpgradeUtils {
     when(stateMachine.getLastAppliedTermIndex()).thenReturn(termIndex);
     when(stateMachine.takeSnapshot()).thenReturn(1L);
 
-    waitForAllTxnsApplied(stateMachine, raftGroup, raftServerProxy,
-        10, 2, false);
+    waitForAllTxnsApplied(stateMachine, raftServer, 10, 2);
     verify(stateMachine.getLastAppliedTermIndex(),
         times(4)); // 3 checks + 1 after snapshot
   }
@@ -73,14 +68,10 @@ public class TestRatisUpgradeUtils {
   public void testWaitForAllTxnsAppliedTimeOut() throws Exception {
 
     StateMachine stateMachine = mock(StateMachine.class);
-    RaftGroup raftGroup = RaftGroup.emptyGroup();
-    RaftServerProxy raftServerProxy = mock(RaftServerProxy.class);
     RaftServerImpl raftServer = mock(RaftServerImpl.class);
     ServerState serverState = mock(ServerState.class);
     RaftLog raftLog = mock(RaftLog.class);
 
-    when(raftServerProxy.getImpl(
-        raftGroup.getGroupId())).thenReturn(raftServer);
     when(raftServer.getState()).thenReturn(serverState);
     when(serverState.getLog()).thenReturn(raftLog);
     when(raftLog.getLastCommittedIndex()).thenReturn(1L);
@@ -92,37 +83,29 @@ public class TestRatisUpgradeUtils {
 
     LambdaTestUtils.intercept(IOException.class, "State Machine has not " +
         "applied  all the transactions", () ->
-        waitForAllTxnsApplied(stateMachine, raftGroup, raftServerProxy,
-            10, 2,
-            false));
+        waitForAllTxnsApplied(stateMachine, raftServer, 10, 2));
   }
 
 
   @Test
-  public void testPurgeLogsAfterWait() throws IOException,
-      InterruptedException {
+  public void testPurgeLogsAfterWait() throws IOException {
 
     StateMachine stateMachine = mock(StateMachine.class);
-    RaftGroup raftGroup = RaftGroup.emptyGroup();
-    RaftServerProxy raftServerProxy = mock(RaftServerProxy.class);
     RaftServerImpl raftServer = mock(RaftServerImpl.class);
     ServerState serverState = mock(ServerState.class);
     RaftLog raftLog = mock(RaftLog.class);
 
-    when(raftServerProxy.getImpl(
-        raftGroup.getGroupId())).thenReturn(raftServer);
     when(raftServer.getState()).thenReturn(serverState);
     when(serverState.getLog()).thenReturn(raftLog);
-    when(raftLog.getLastCommittedIndex()).thenReturn(1L);
-    when(raftLog.purge(1L)).thenReturn(
+    when(raftLog.syncWithSnapshot(1L)).thenReturn(
         CompletableFuture.completedFuture(1L));
     TermIndex termIndex = mock(TermIndex.class);
     when(termIndex.getIndex()).thenReturn(1L);
+    when(raftLog.getLastEntryTermIndex()).thenReturn(termIndex);
     when(stateMachine.getLastAppliedTermIndex()).thenReturn(termIndex);
     when(stateMachine.takeSnapshot()).thenReturn(1L);
 
-    waitForAllTxnsApplied(stateMachine, raftGroup, raftServerProxy,
-        10, 2, true);
+    assertEquals(1, takeSnapshotAndPurgeLogs(raftServer, stateMachine));
   }
 
 }

@@ -203,6 +203,7 @@ public class MiniOzoneHAClusterImpl extends MiniOzoneClusterImpl {
     for (OzoneManager ozoneManager : ozoneManagers) {
       ozoneManager.stop();
       ozoneManager.restart();
+      LOG.info("");
     }
   }
 

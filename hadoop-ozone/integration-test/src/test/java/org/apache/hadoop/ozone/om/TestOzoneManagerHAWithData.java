@@ -655,7 +655,7 @@ public class TestOzoneManagerHAWithData extends TestOzoneManagerHA {
   }
 
   @Test
-  public void testApplyAllPendingTransactions() throws Exception {
+  public void testPrepareForUpgrade() throws Exception {
 
     createKeyTest(false);
 
@@ -663,7 +663,7 @@ public class TestOzoneManagerHAWithData extends TestOzoneManagerHA {
     cluster.restartOzoneManagerInUpgradeMode();
 
     for (OzoneManager om : cluster.getOzoneManagersList()) {
-      Assert.assertTrue(om.applyAllPendingTransactions());
+      Assert.assertTrue(om.prepareForUpgrade());
 
       // Verify Applied Index.
       OzoneManagerRatisServer omRatisServer = om.getOmRatisServer();

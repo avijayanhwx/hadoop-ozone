@@ -248,6 +248,6 @@ public final class OMConfigKeys {
       false;
 
   public static final long OZONE_OM_MAX_TIME_TO_WAIT_FLUSH_TXNS =
-      TimeUnit.MINUTES.toSeconds(5);
+      TimeUnit.MINUTES.toSeconds(1);
   public static final long OZONE_OM_FLUSH_TXNS_RETRY_INTERVAL_SECONDS = 5L;
 }

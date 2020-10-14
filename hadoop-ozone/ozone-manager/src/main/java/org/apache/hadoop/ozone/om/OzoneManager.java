@@ -194,6 +194,7 @@ import static org.apache.hadoop.hdds.HddsConfigKeys.HDDS_BLOCK_TOKEN_ENABLED;
 import static org.apache.hadoop.hdds.HddsConfigKeys.HDDS_BLOCK_TOKEN_ENABLED_DEFAULT;
 import static org.apache.hadoop.hdds.HddsUtils.getScmAddressForBlockClients;
 import static org.apache.hadoop.hdds.HddsUtils.getScmAddressForClients;
+import static org.apache.hadoop.hdds.ratis.RatisUpgradeUtils.takeSnapshotAndPurgeLogs;
 import static org.apache.hadoop.hdds.ratis.RatisUpgradeUtils.waitForAllTxnsApplied;
 import static org.apache.hadoop.hdds.security.x509.certificates.utils.CertificateSignRequest.getEncodedString;
 import static org.apache.hadoop.hdds.server.ServerUtils.getRemoteUserName;
@@ -238,6 +239,7 @@ import static org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos.
 
 import org.apache.hadoop.util.Time;
 import org.apache.ratis.proto.RaftProtos.RaftPeerRole;
+import org.apache.ratis.server.impl.RaftServerImpl;
 import org.apache.ratis.server.impl.RaftServerProxy;
 import org.apache.ratis.server.protocol.TermIndex;
 import org.apache.ratis.util.ExitUtils;
@@ -411,7 +413,6 @@ public final class OzoneManager extends ServiceRuntimeInfoImpl
         OMConfigKeys.OZONE_OM_RATIS_ENABLE_DEFAULT);
 
     this.prepareForUpgrade = forUpgrade;
-
     InetSocketAddress omNodeRpcAddr = omNodeDetails.getRpcAddress();
     omRpcAddressTxt = new Text(omNodeDetails.getRpcAddressString());
 
@@ -1018,10 +1019,10 @@ public final class OzoneManager extends ServiceRuntimeInfoImpl
    * @throws InterruptedException
    * @throws IOException
    */
-  public boolean applyAllPendingTransactions()
+  public boolean prepareForUpgrade()
       throws InterruptedException, IOException {
 
-    LOG.info("Preparing {} for upgrade/downgrade.", omId);
+    LOG.info("Preparing {} for upgrade/downgrade.", getOMNodeId());
 
     if (!isRatisEnabled) {
       LOG.info("Ratis not enabled. Nothing to do.");
@@ -1033,12 +1034,14 @@ public final class OzoneManager extends ServiceRuntimeInfoImpl
           "may be running.");
     }
 
+    RaftServerProxy server = (RaftServerProxy) omRatisServer.getServer();
+    RaftServerImpl impl =
+        server.getImpl(omRatisServer.getRaftGroup().getGroupId());
     waitForAllTxnsApplied(omRatisServer.getOmStateMachine(),
-        omRatisServer.getRaftGroup(),
-        (RaftServerProxy) omRatisServer.getServer(),
+        impl,
         OZONE_OM_MAX_TIME_TO_WAIT_FLUSH_TXNS,
-        OZONE_OM_FLUSH_TXNS_RETRY_INTERVAL_SECONDS,
-        true);
+        OZONE_OM_FLUSH_TXNS_RETRY_INTERVAL_SECONDS);
+
 
     long appliedIndexFromRatis =
         omRatisServer.getOmStateMachine().getLastAppliedTermIndex().getIndex();
@@ -1052,10 +1055,13 @@ public final class OzoneManager extends ServiceRuntimeInfoImpl
               index, appliedIndexFromRatis));
     }
 
+    long lastIndex = takeSnapshotAndPurgeLogs(server.getImpl(
+        omRatisServer.getRaftGroup().getGroupId()),
+        omRatisServer.getOmStateMachine());
+
     LOG.info("OM has been prepared for upgrade. All transactions " +
         "upto {} have been flushed to the state machine, " +
-        "and a snapshot has been taken.",
-        omRatisServer.getOmStateMachine().getLastAppliedTermIndex().getIndex());
+        "and a snapshot has been taken.", lastIndex);
     return true;
   }
 
@@ -1308,8 +1314,10 @@ public final class OzoneManager extends ServiceRuntimeInfoImpl
       LOG.error("OM HttpServer failed to start.", ex);
     }
 
-    omRpcServer.start();
-    isOmRpcServerRunning = true;
+    if (!prepareForUpgrade) {
+      omRpcServer.start();
+      isOmRpcServerRunning = true;
+    }
 
     registerMXBean();
 

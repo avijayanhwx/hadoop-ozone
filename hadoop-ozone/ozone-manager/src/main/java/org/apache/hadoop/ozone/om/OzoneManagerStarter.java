@@ -160,7 +160,7 @@ public class OzoneManagerStarter extends GenericCli {
         boolean success = false;
         try {
           LOG.info("Preparing OM for upgrade.");
-          success = om.applyAllPendingTransactions();
+          success = om.prepareForUpgrade();
         } catch (InterruptedException e) {
           LOG.error("Error preparing OM for upgrade.", e);
           Thread.currentThread().interrupt();
