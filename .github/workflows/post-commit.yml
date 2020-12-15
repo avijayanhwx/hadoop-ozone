@@ -35,7 +35,7 @@ jobs:
         env:
           ITERATIONS: 20
       - name: Summary of failures
-        run: cat mnt/ozone/target/${{ github.job }}/summary.txt
+        run: cat mnt/ozone/target/integration/summary.txt
         if: always()
       - name: Archive build results
         uses: actions/upload-artifact@v2
