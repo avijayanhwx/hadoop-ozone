@@ -33,31 +33,31 @@ import org.junit.Test;
  */
 public class TestRatisDropwizardExports {
 
-  @Test
-  public void export() throws IOException {
-    //create Ratis metrics
-    RaftLogMetrics instance = new RaftLogMetrics("instance");
-    instance.getRaftLogSyncTimer().update(10, TimeUnit.MILLISECONDS);
-    MetricRegistry dropWizardMetricRegistry =
-        instance.getRegistry().getDropWizardMetricRegistry();
-
-    //create and register prometheus collector
-    RatisDropwizardExports exports =
-        new RatisDropwizardExports(dropWizardMetricRegistry);
-
-    CollectorRegistry collector = new CollectorRegistry();
-    collector.register(new RatisDropwizardExports(dropWizardMetricRegistry));
-
-    //export metrics to the string
-    StringWriter writer = new StringWriter();
-    TextFormat.write004(writer, collector.metricFamilySamples());
-
-    System.out.println(writer.toString());
-
-    Assert.assertFalse("Instance name is not moved to be a tag",
-        writer.toString()
-            .contains("ratis_core_ratis_log_worker_instance_syncTime"));
-
-  }
+//  @Test
+//  public void export() throws IOException {
+//    //create Ratis metrics
+//    RaftLogMetrics instance = new RaftLogMetrics("instance");
+//    instance.getRaftLogSyncTimer().update(10, TimeUnit.MILLISECONDS);
+//    MetricRegistry dropWizardMetricRegistry =
+//        instance.getRegistry().getDropWizardMetricRegistry();
+//
+//    //create and register prometheus collector
+//    RatisDropwizardExports exports =
+//        new RatisDropwizardExports(dropWizardMetricRegistry);
+//
+//    CollectorRegistry collector = new CollectorRegistry();
+//    collector.register(new RatisDropwizardExports(dropWizardMetricRegistry));
+//
+//    //export metrics to the string
+//    StringWriter writer = new StringWriter();
+//    TextFormat.write004(writer, collector.metricFamilySamples());
+//
+//    System.out.println(writer.toString());
+//
+//    Assert.assertFalse("Instance name is not moved to be a tag",
+//        writer.toString()
+//            .contains("ratis_core_ratis_log_worker_instance_syncTime"));
+//
+//  }
 
 }
