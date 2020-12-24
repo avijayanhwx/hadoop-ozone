@@ -36,6 +36,7 @@ import static org.apache.hadoop.ozone.OzoneConsts.TRANSACTION_INFO_KEY;
 import static org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos.Type;
 
 import org.apache.ratis.server.RaftServer;
+import org.apache.ratis.server.protocol.TermIndex;
 import org.apache.ratis.server.raftlog.RaftLog;
 import org.apache.ratis.statemachine.StateMachine;
 import org.slf4j.Logger;
@@ -116,7 +117,15 @@ public class OMPrepareRequest extends OMClientRequest {
       // TODO: After the snapshot index update fix, the prepare index will
       //  always be 1 more than the prepare txn index, because the Ratis
       //  entry to commit the prepare request will be included in the snapshot.
-      long prepareIndex = takeSnapshotAndPurgeLogs(division);
+      long prepareIndex = takeSnapshotAndPurgeLogs(ozoneManager, division);
+
+      if (prepareIndex != transactionLogIndex) {
+        omResponse = PrepareResponse.newBuilder()
+            .setTxnID(prepareIndex)
+            .build();
+        responseBuilder.setPrepareResponse(omResponse);
+        response = new OMPrepareResponse(responseBuilder.build());
+      }
 
       // Save transaction log index to a marker file, so if the OM restarts,
       // it will remain in prepare mode on that index as long as the file
@@ -173,10 +182,10 @@ public class OMPrepareRequest extends OMClientRequest {
         // If there are no transactions in the DB, we are prepared to log
         // index 0 only.
         success = (indexToWaitFor == 0)
-            && (ratisTxnIndex >= indexToWaitFor);
+            && (ratisTxnIndex == indexToWaitFor + 1);
       } else {
         success = (dbTxnInfo.getTransactionIndex() == indexToWaitFor)
-            && (ratisTxnIndex >= indexToWaitFor);
+            && (ratisTxnIndex >= indexToWaitFor + 1);
       }
 
       if (!success) {
@@ -200,7 +209,8 @@ public class OMPrepareRequest extends OMClientRequest {
    * @return The index the snapshot was taken on.
    * @throws IOException on Error.
    */
-  public static long takeSnapshotAndPurgeLogs(RaftServer.Division division)
+  public static long takeSnapshotAndPurgeLogs(OzoneManager om,
+                                              RaftServer.Division division)
       throws IOException {
 
     StateMachine stateMachine = division.getStateMachine();
@@ -215,12 +225,21 @@ public class OMPrepareRequest extends OMClientRequest {
     // transaction pipeline (un-applied) at the same time.
     if (raftLogIndex > snapshotIndex) {
       LOG.warn("Snapshot index {} does not " +
-          "match last log index {}.", snapshotIndex, raftLogIndex);
+              "match last log index {} in OM {}.", snapshotIndex, raftLogIndex,
+          om.getOMNodeId());
       snapshotIndex = raftLogIndex;
     }
 
+    TermIndex termIndex = om.getMetadataManager()
+        .getTransactionInfoTable().get(TRANSACTION_INFO_KEY).getTermIndex();
+    if (snapshotIndex != termIndex.getIndex()) {
+      LOG.warn("Snapshot index {} does not " +
+              "match OM Txn info index {} in OM {}.", snapshotIndex,
+          termIndex.getIndex(), om.getOMNodeId());
+    }
+
     CompletableFuture<Long> purgeFuture =
-        raftLog.syncWithSnapshot(snapshotIndex);
+        raftLog.onSnapshotInstalled(snapshotIndex);
 
     try {
       Long purgeIndex = purgeFuture.get();
